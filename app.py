@@ -9,7 +9,7 @@ st.set_page_config(page_title="Душнила-Дефендер", page_icon="⚖�
 
 # Инициализация ИИ (берем ключ из секретов хостинга, об этом ниже)
 # Для локального теста можно временно заменить на: API_KEY = "AQ.Ab8RN6L3tzjgtM1HB1aI3p81VpBeTy2HyoOjMVZpmS2dpoB9wA"
-API_KEY = st.secrets.get("GEMINI_API_KEY", AQ.Ab8RN6L3tzjgtM1HB1aI3p81VpBeTy2HyoOjMVZpmS2dpoB9wAТВОЙ_API_КЛЮЧ")
+API_KEY = st.secrets.get("GEMINI_API_KEY", "AQ.Ab8RN6L3tzjgtM1HB1aI3p81VpBeTy2HyoOjMVZpmS2dpoB9wA")
 client = genai.Client(api_key=API_KEY)
 
 FILES_MAP = {
