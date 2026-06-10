@@ -4,14 +4,15 @@ import re
 from google import genai
 from google.genai import types
 
-# Настройка страницы сайта (должна быть первой строчкой)
+# 1. Настройка страницы сайта (Обязательно первая строка)
 st.set_page_config(page_title="Душнила-Дефендер", page_icon="⚖️", layout="wide")
 
-# Инициализация ИИ (берем ключ из секретов хостинга, об этом ниже)
-# Для локального теста можно временно заменить на: API_KEY = "AQ.Ab8RN6L3tzjgtM1HB1aI3p81VpBeTy2HyoOjMVZpmS2dpoB9wA"
-API_KEY = st.secrets.get("GEMINI_API_KEY", "AQ.Ab8RN6L3tzjgtM1HB1aI3p81VpBeTy2HyoOjMVZpmS2dpoB9wA")
-client = genai.Client(api_key=API_KEY)
+# 2. Твой жестко вшитый API-ключ (Никаких настроек больше не нужно)
+API_KEY = "AQ.Ab8RN6L3tzjgtM1HB1aI3p81VpBeTy2HyoOjMVZpmS2dpoB9wA"
+os.environ["GEMINI_API_KEY"] = API_KEY
+client = genai.Client()
 
+# Карта твоих файлов
 FILES_MAP = {
     "ук": "ук.txt",
     "ак": "ак.txt",
@@ -22,6 +23,7 @@ FILES_MAP = {
 }
 
 def load_all_files():
+    """Считывает все файлы в одну базу для ИИ."""
     full_context = ""
     for key, filename in FILES_MAP.items():
         if os.path.exists(filename):
@@ -31,6 +33,7 @@ def load_all_files():
     return full_context
 
 def direct_search(user_input):
+    """Прямой поиск по точной статье (например, 17.1 УК)"""
     match = re.search(r'(\d+(?:\.\d+)*)\s*([а-яА-Яa-zA-Z]+)', user_input.lower())
     if match:
         article_num = match.group(1)
@@ -39,7 +42,7 @@ def direct_search(user_input):
         if file_key in FILES_MAP:
             filename = FILES_MAP[file_key]
             if not os.path.exists(filename):
-                return f"Файл {filename} не найден."
+                return f"Файл {filename} не найден в папке сайта."
                 
             with open(filename, "r", encoding="utf-8") as f:
                 lines = f.readlines()
@@ -64,62 +67,65 @@ def direct_search(user_input):
 st.title("⚖️ Юридический помощник «Душнила-Дефендер»")
 st.caption("Быстрый поиск по кодексам и ИИ-анализ для жесткой защиты")
 
-# Боковая панель со статусом файлов
+# Боковая панель со статусом твоих файлов
 with st.sidebar:
     st.header("📂 База данных")
+    st.info("Убедись, что эти файлы лежат в той же папке на GitHub!")
     for key, filename in FILES_MAP.items():
         if os.path.exists(filename):
-            st.success(f"Файл {filename} готов")
+            st.success(f"✅ Файл {filename} обнаружен")
         else:
-            st.error(f"Файл {filename} не найден")
+            st.error(f"❌ Файл {filename} НЕ найден")
 
-# Разделение сайта на две удобные вкладки
+# Вкладки на сайте
 tab1, tab2 = st.tabs(["🤖 ИИ-Адвокат (Анализ ситуации)", "📋 Быстрый поиск статьи"])
 
 with tab1:
     st.subheader("Опиши ситуацию, и ИИ разложит её по законам")
     user_query = st.text_area(
-        "Что натворил человек или как его задержали?", 
-        placeholder="Пример: Чел ночью разбил витрину магазина и утащил ноут, при задержании жестко заломили руки...",
+        "Что произошло? (Опиши действия человека или косяки при задержании)", 
+        placeholder="Пример: Тип угнал машину ночью, закрылся в ней, при задержании ему заломили руки...",
         height=150
     )
     
-    # Красивая кнопка запуска
     if st.button("⚖️ Разобрать дело по закону", type="primary"):
         if not user_query.strip():
-            st.warning("Сначала опиши ситуацию!")
+            st.warning("Сначала опиши ситуацию в поле выше!")
         else:
             with st.spinner("Душный адвокат изучает материалы дела и ищет лазейки..."):
                 knowledge_base = load_all_files()
                 
-                system_instruction = (
-                    "Ты — самый дотошный, жесткий и душный адвокат в мире. Твоя цель — разносить в пух и прах обвинение, "
-                    "используя исключительно предоставленные файлы нормативно-правовых актов (базу знаний).\n"
-                    "1. Четко определи, под какие статьи из предоставленных файлов попадает действие.\n"
-                    "2. Распиши пошагово, как вести себя при задержании, что говорить, какие права качать.\n"
-                    "3. Найди любые лазейки, смягчающие обстоятельства или процессуальные ошибки в действиях силовиков, опираясь на статьи из файлов.\n"
-                    "4. Пиши профессиональным, въедливым юридическим языком, оформляй текст списками, выделяй номера статей жирным шрифтом."
-                )
-                
-                prompt = f"База знаний:\n{knowledge_base}\n\nСитуация: {user_query}"
-                
-                try:
-                    response = client.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=prompt,
-                        config=types.GenerateContentConfig(
-                            system_instruction=system_instruction,
-                            temperature=0.3,
-                        ),
+                if not knowledge_base.strip():
+                    st.error("Ошибка: Скрипт не нашёл ни одного .txt файла со статьями в твоей папке. Загрузи их на GitHub!")
+                else:
+                    system_instruction = (
+                        "Ты — самый дотошный, жесткий и душный адвокат в мире. Твоя цель — разносить в пух и прах обвинение, "
+                        "используя исключительно предоставленные файлы нормативно-правовых актов (базу знаний).\n"
+                        "1. Четко определи, под какие статьи из предоставленных файлов попадает действие.\n"
+                        "2. Распиши пошагово, как вести себя при задержании, что говорить, какие права качать.\n"
+                        "3. Найди любые лазейки, смягчающие обстоятельства или процессуальные ошибки в действиях силовиков, опираясь на статьи из файлов.\n"
+                        "4. Пиши профессиональным, въедливым юридическим языком, оформляй текст списками, выделяй номера статей жирным шрифтом."
                     )
-                    st.markdown("### 🏛️ Стратегия защиты:")
-                    st.markdown(response.text)
-                except Exception as e:
-                    st.error(f"Ошибка ИИ: {e}")
+                    
+                    prompt = f"База знаний со статьями:\n{knowledge_base}\n\nСитуация подзащитного: {user_query}"
+                    
+                    try:
+                        response = client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=prompt,
+                            config=types.GenerateContentConfig(
+                                system_instruction=system_instruction,
+                                temperature=0.3,
+                            ),
+                        )
+                        st.markdown("### 🏛️ Стратегия защиты:")
+                        st.markdown(response.text)
+                    except Exception as e:
+                        st.error(f"Ошибка при ответе ИИ: {e}")
 
 with tab2:
-    st.subheader("Мгновенное извлечение текста статьи")
-    search_query = st.text_input("Введите номер и кодекс", placeholder="Пример: 17.1 УК или 5.1 АК")
+    st.subheader("Мгновенное извлечение текста статьи без ИИ")
+    search_query = st.text_input("Введите номер статьи и кодекс", placeholder="Пример: 17.1 УК или 5.1 АК")
     
     if st.button("🔍 Найти статью"):
         if search_query.strip():
@@ -128,6 +134,6 @@ with tab2:
                 st.info(f"Текст найденной статьи по запросу {search_query}:")
                 st.code(result, language="text")
             else:
-                st.warning("Статья не найдена. Проверьте формат (Номер Название, например: 17.1 УК)")
+                st.warning("Статья не найдена. Убедись, что пишешь формат как в примере (17.1 УК) и что этот файл загружен.")
         else:
-            st.error("Введите запрос!")
+            st.error("Введите поисковый запрос!")
