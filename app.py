@@ -1,16 +1,14 @@
 import streamlit as st
 import os
 import re
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 
 # 1. Настройка страницы сайта (Обязательно первая строка)
 st.set_page_config(page_title="Душнила-Дефендер", page_icon="⚖️", layout="wide")
 
-# 2. Твой жестко вшитый API-ключ (Никаких настроек больше не нужно)
+# 2. Настройка ИИ через старую стабильную библиотеку
 API_KEY = "AQ.Ab8RN6L3tzjgtM1HB1aI3p81VpBeTy2HyoOjMVZpmS2dpoB9wA"
-os.environ["GEMINI_API_KEY"] = API_KEY
-client = genai.Client()
+genai.configure(api_key=API_KEY)
 
 # Карта твоих файлов
 FILES_MAP = {
@@ -107,17 +105,13 @@ with tab1:
                         "4. Пиши профессиональным, въедливым юридическим языком, оформляй текст списками, выделяй номера статей жирным шрифтом."
                     )
                     
-                    prompt = f"База знаний со статьями:\n{knowledge_base}\n\nСитуация подзащитного: {user_query}"
+                    prompt = f"{system_instruction}\n\nВот твоя база знаний со статьями:\n{knowledge_base}\n\nСитуация подзащитного: {user_query}"
                     
                     try:
-                        response = client.models.generate_content(
-                            model="gemini-2.5-flash",
-                            contents=prompt,
-                            config=types.GenerateContentConfig(
-                                system_instruction=system_instruction,
-                                temperature=0.3,
-                            ),
-                        )
+                        # Используем стабильную модель старого SDK
+                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        response = model.generate_content(prompt)
+                        
                         st.markdown("### 🏛️ Стратегия защиты:")
                         st.markdown(response.text)
                     except Exception as e:
